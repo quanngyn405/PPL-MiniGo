@@ -1,0 +1,9 @@
+
+    func main() {
+        var f = true;
+        var g boolean;
+
+        putBoolLn(f)
+        putBool(g)
+    }
+     

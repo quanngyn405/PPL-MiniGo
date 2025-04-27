@@ -1,0 +1,5 @@
+
+func main() {
+    putIntLn(5 % 2)
+    putIntLn(2 % 5)
+}

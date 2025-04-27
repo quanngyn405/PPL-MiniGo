@@ -1,0 +1,8 @@
+
+    var a [2] int;
+    func main() {
+        a[0] := 100
+        a[1] += a[0] + a[0]
+        putInt(a[1])
+    }
+    

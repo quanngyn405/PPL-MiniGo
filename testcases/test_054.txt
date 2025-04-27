@@ -1,0 +1,10 @@
+
+func concat(a string, b string) string {
+    return a + b;
+}
+
+func main() {
+    var s = concat("Hello, ", "World!");
+    putStringLn(s);
+}
+        

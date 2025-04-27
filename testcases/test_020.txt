@@ -1,0 +1,9 @@
+
+func main() {
+    putBoolLn("apple" > "banana")     // False
+    putBoolLn("apple" < "banana")     // True
+    putBoolLn("apple" <= "apple")     // True
+    putBoolLn("banana" >= "apple")    // True
+    putBoolLn("hello" == "hello")     // True
+    putBoolLn("hello" != "hello")     // False
+}

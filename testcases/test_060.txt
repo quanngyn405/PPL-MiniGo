@@ -1,0 +1,7 @@
+
+func main() {
+    putBoolLn(10 == 10);
+    putBoolLn(10 != 5);
+    putBoolLn(5 >= 10);
+}
+        

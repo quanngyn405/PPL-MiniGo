@@ -1,0 +1,12 @@
+
+func main() {
+    var a = 1 + 2.0;
+    var b = 1.0 > 2.0;
+    var c = "vo" + "tien";
+    var d = "a" < "b";
+
+    putFloatLn(a)
+    putBoolLn(b)
+    putStringLn(c)
+    putBoolLn(d)
+}

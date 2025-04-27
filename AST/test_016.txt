@@ -1,0 +1,1 @@
+Program([FuncDecl(main,[],VoidType,Block([FuncCall(putIntLn,[BinaryOp(IntLiteral(5),%,IntLiteral(2))]),FuncCall(putIntLn,[BinaryOp(IntLiteral(2),%,IntLiteral(5))])]))])

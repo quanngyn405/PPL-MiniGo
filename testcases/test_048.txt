@@ -1,0 +1,6 @@
+
+func main() {
+    a := getString()
+    putString(a)
+    return
+}

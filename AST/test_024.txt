@@ -1,0 +1,1 @@
+Program([FuncDecl(main,[],VoidType,Block([FuncCall(putBoolLn,[UnaryOp(!,BooleanLiteral(true))]),FuncCall(putBoolLn,[UnaryOp(!,BooleanLiteral(false))]),FuncCall(putIntLn,[UnaryOp(-,IntLiteral(1))]),FuncCall(putFloatLn,[UnaryOp(-,FloatLiteral(1.0))])]))])
