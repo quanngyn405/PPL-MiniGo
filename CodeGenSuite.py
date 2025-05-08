@@ -1,21 +1,9 @@
-"""
- * Initial code for Assignment
- * Programming Language Principles
- * Author: Võ Tiến
- * Link FB : https://www.facebook.com/profile.php?id=100056605580171
- * Link Group : https://www.facebook.com/groups/211867931379013
- * Date: 02.04.2024
-"""
 import unittest
 from TestUtils import TestCodeGen
 import inspect
 from AST import *
 
-"""
-    (cd java_byte_code/test_001 && 
-    java  -jar ../jasmin.jar MiniGoClass.j && 
-    java -cp ../_io;. MiniGoClass)
-"""
+
 class CodeGenSuite(unittest.TestCase):
     def test_000(self):
         input = """
@@ -396,96 +384,623 @@ func main() {
 }
       """
       self.assertTrue(TestCodeGen.test(input, "020", inspect.stack()[0].function))
+# type Course interface {study();}
+# type PPL3 struct {number int;}
+# func (p PPL3) study() {putInt(p.number);}
 
-#     def test_052(self):
-#         input = """
-# func main() {
-#     var a = 10;
-#     var b = 3;
-#     var c = a / b;
-#     putIntLn(c);
+# func main(){
+#     var a PPL3 = PPL3 {number: 10}
+#     putIntLn(a.number)
+#     a.study()
 # }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "3\n", inspect.stack()[0].function))
+    def test_141(self):
+        input = """
+type Course interface {study();}
+type PPL3 struct {number int;}
+func (p PPL3) study() {putInt(p.number);}
 
-#     def test_053(self):
-#         input = """
-# func add(x int, y int) int {
-#     return x + y;
-# }
+func main(){
+    var a PPL3 = PPL3 {number: 10}
+    putIntLn(a.number)
+    a.study()
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "10\n10", inspect.stack()[0].function))
 
-# func main() {
-#     var result = add(5, 7);
-#     putIntLn(result);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "12\n", inspect.stack()[0].function))
+    def test_142(self):
+        input = """
+type Course interface {study();}
+type PPL3 struct {number int;}
+func (p PPL3) study() {putInt(p.number);}
 
-#     def test_054(self):
-#         input = """
-# func concat(a string, b string) string {
-#     return a + b;
-# }
+func main(){
+    var a Course = nil
+    a := PPL3 {number: 10}
+    a.study()
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "10", inspect.stack()[0].function))
 
-# func main() {
-#     var s = concat("Hello, ", "World!");
-#     putStringLn(s);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "Hello, World!\n", inspect.stack()[0].function))
+    def test_143(self):
+        input = """
+type PPL3 struct {number int;}
 
-#     def test_055(self):
-#         input = """
-# func main() {
-#     var x = 5;
-#     var y = 10;
-#     var z = x * y + (x - y);
-#     putIntLn(z);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "45\n", inspect.stack()[0].function))
+func main(){
+    var a PPL3 = PPL3 {number: 10}
+    putInt(a.number)
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "10", inspect.stack()[0].function))
 
-#     def test_056(self):
-#         input = """
-# func main() {
-#     var a = 5.5;
-#     var b = 2.0;
-#     var c = a / b;
-#     putFloatLn(c);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "2.75\n", inspect.stack()[0].function))
+    def test_144(self):
+        input = """
+type PPL3 struct {number int;}
 
-#     def test_057(self):
-#         input = """
-# func double(n int) int {
-#     return n * 2;
-# }
+func main(){
+    var a PPL3
+    a.number := 10
+    putInt(a.number)
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "10", inspect.stack()[0].function))
 
-# func main() {
-#     var a = double(4);
-#     putIntLn(a);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "8\n", inspect.stack()[0].function))
+    def test_145(self):
+        input = """
+type PPL2 struct {number int;}
+type PPL3 struct {number int; ppl PPL2;}
 
-#     def test_058(self):
-#         input = """
-# func main() {
-#     var s = "abc";
-#     s += "def";
-#     putStringLn(s);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "abcdef\n", inspect.stack()[0].function))
+func main(){
+    var a PPL3
+    a.ppl := PPL2 {number: 10}
+   putInt(a.ppl.number)
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "10", inspect.stack()[0].function))
 
-#     def test_059(self):
-#         input = """
-# func main() {
-#     putBoolLn(10 == 10);
-#     putBoolLn(10 != 5);
-#     putBoolLn(5 >= 10);
-# }
-#         """
-#         self.assertTrue(TestCodeGen.test(input, "true\ntrue\nfalse\n", inspect.stack()[0].function))
+    def test_146(self):
+        input = """
+type PPL2 struct {number int;}
+type PPL3 struct {number int; ppl PPL2;}
+
+func main(){
+    var a PPL3
+    a.ppl := PPL2 {number: 10}
+    a.ppl.number := 100
+   putInt(a.ppl.number)
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "100", inspect.stack()[0].function))        
+
+    def test_147(self):
+        input = """
+type Study interface { study(); }
+type Play interface { play(); }
+
+type PPL3 struct {number int;}
+
+func (p PPL3) study() { putInt(p.number); }
+func (p PPL3) play()  { putInt(p.number + 5); }
+
+func main() {
+    var a PPL3 = PPL3 {number: 1}
+    a.study()
+    a.play()
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "16", inspect.stack()[0].function))
+
+
+    def test_148(self):
+        input = """
+type Study interface { study(); }
+type Play interface { play(); }
+
+type PPL3 struct {number int;}
+
+func (p PPL3) study() { putInt(p.number); }
+func (p PPL3) play()  { putInt(p.number + 5); }
+
+func main() {
+    var a PPL3 = PPL3 {number: 1}
+    var b Study = a
+    var c Play = a
+    b.study()
+    c.play()
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "16", inspect.stack()[0].function))
+
+    def test_148(self):
+        input = """
+type Study interface { study(); }
+type Play interface { play(); }
+
+type PPL3 struct {number int;}
+
+func (p PPL3) study() { putInt(p.number); }
+func (p PPL3) play()  { putInt(p.number + 5); }
+
+func main() {
+    var a PPL3 = PPL3 {number: 1}
+    var b Study = a
+    var c Play = a
+    b.study()
+    c.play()
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "16", inspect.stack()[0].function))
+
+    def test_149(self):
+        input = """
+type Worker interface { 
+    study(); 
+    play(); 
+}
+
+type PPL4 struct {number int;}
+type PPL5 struct {number int;}
+
+// Implement Worker cho PPL4
+func (p PPL4) study() { putInt(p.number); }
+func (p PPL4) play()  { putInt(p.number + 5); }
+
+// Implement Worker cho PPL5
+func (p PPL5) study() { putInt(p.number * 2); }
+func (p PPL5) play()  { putInt(p.number * 3); }
+
+func main() {
+    var w1 Worker = PPL4 {number: 3}
+    var w2 Worker = PPL5 {number: 4}
+
+    w1.study(); // in: 3
+    w1.play();  // in: 8
+
+    w2.study(); // in: 8
+    w2.play();  // in: 12
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "38" "812", inspect.stack()[0].function))
+
+    def test_150(self):
+        input = """
+type Worker interface { 
+    study(); 
+    play(); 
+}
+
+type PPL4 struct {number int;}
+type PPL5 struct {number int;}
+
+// Implement Worker cho PPL4
+func (p PPL4) study() { putInt(p.number); }
+func (p PPL4) play()  { putInt(p.number + 5); }
+
+// Implement Worker cho PPL5
+func (p PPL5) study() { putInt(p.number * 2); }
+
+func main() {
+    var w1 Worker = PPL4 {number: 3}
+    var w2 PPL5 = PPL5 {number: 4}
+
+    w1.study(); // in: 3
+    w1.play();  // in: 8
+
+    w2.study(); // in: 8
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "38" "8", inspect.stack()[0].function))
+
+
+    def test_151(self):
+        input = """
+type Speaker interface { speak(); }
+
+type Human struct {name int; }
+
+func (h Human) speak() { putIntLn(h.name); }
+
+func saySomething(s Speaker) {
+    s.speak();
+}
+
+func main() {
+    var h Speaker = Human {name: 2025};
+    saySomething(h);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "2025\n", inspect.stack()[0].function))
+
+
+    def test_152(self):
+        input = """
+type Speaker interface { speak(); }
+
+type Human struct { name int; }
+
+func (h Human) speak() { putIntLn(h.name); }
+
+func main() {
+    var people [3]Speaker;
+
+    people[0] := Human {name: 1};
+    people[1] := Human {name: 2};
+    people[2] := Human {name: 3};
+
+    people[0].speak(); // Output: 1
+    people[1].speak(); // Output: 2
+    people[2].speak(); // Output: 3
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "1\n2\n3\n", inspect.stack()[0].function))
+
+    def test_153(self):
+        input = """
+type Speaker interface { speak(); }
+
+type Human struct { name int; }
+
+func (h Human) speak() { putIntLn(h.name); }
+
+func main() {
+    var people [3]Human;
+
+    people[0] := Human {name: 1};
+    people[1] := Human {name: 2};
+    people[2] := Human {name: 3};
+
+    people[0].speak(); // Output: 1
+    people[1].speak(); // Output: 2
+    people[2].speak(); // Output: 3
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "1\n2\n3\n", inspect.stack()[0].function))
+
+    def test_154(self):
+        input = """
+type Calculator struct { x int; y int; }
+
+func (c Calculator) sum() int {
+    return c.x + c.y;
+}
+
+func main() {
+    var cal Calculator = Calculator {x: 7, y: 8};
+    var result int = cal.sum();
+    putIntLn(result);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "15\n", inspect.stack()[0].function))
+
+    def test_155(self):
+        input = """
+type Calculator interface { sum() int; }
+
+type BasicCalc struct { x int; y int; }
+
+func (b BasicCalc) sum() int {
+    return b.x + b.y;
+}
+
+func main() {
+    var c Calculator = BasicCalc {x: 5, y: 15};
+    var result int = c.sum();
+    putIntLn(result);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "20\n", inspect.stack()[0].function))
+
+    def test_156(self):
+        input = """
+type Speaker interface { speak(); }
+
+type Human struct { name int; }
+
+func (h Human) speak() { putIntLn(h.name); }
+
+func sayHello(s Speaker) {
+    s.speak();
+}
+
+func main() {
+    var h Human = Human {name: 100};
+    sayHello(h);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "100\n", inspect.stack()[0].function))
+
+    def test_157(self):
+        input = """
+type Calculator interface { sum() int; }
+
+type BasicCalc struct { x int; y int; }
+
+func (b BasicCalc) sum() int {
+    return b.x + b.y;
+}
+
+func calculate(c Calculator) int {
+    return c.sum();
+}
+
+func main() {
+    var b BasicCalc = BasicCalc {x: 20, y: 30};
+    var result int = calculate(b);
+    putIntLn(result);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "50\n", inspect.stack()[0].function))
+
+    def test_158(self):
+        input = """
+type Multiplier struct { factor int; }
+
+func (m Multiplier) multiply(value int) int {
+    return m.factor * value;
+}
+
+func main() {
+    var mul Multiplier = Multiplier {factor: 5};
+    var result int = mul.multiply(4);
+    putIntLn(result);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "20\n", inspect.stack()[0].function))
+
+    def test_159(self):
+        input = """
+type Calculator interface { calculate(a int, b int) int; }
+
+type BasicCalc struct {number int;}
+
+func (b BasicCalc) calculate(a int, b int) int {
+    return a + b;
+}
+
+func main() {
+    var c Calculator = BasicCalc {};
+    var result int = c.calculate(15, 25);
+    putIntLn(result);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "40\n", inspect.stack()[0].function))
+
+
+    def test_160(self):
+        input = """
+type Calculator interface { calculate(a int, b int); }
+
+type BasicCalc struct {number int;}
+
+func (b BasicCalc) calculate(a int, b int) {
+    putIntLn(a+b);
+}
+
+func main() {
+    var c Calculator = BasicCalc {};
+    c.calculate(15, 25);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "40\n", inspect.stack()[0].function))
+
+    def test_161(self):
+        input = """
+type Calculator interface { calculate(a int, b int); }
+
+type BasicCalc struct {number int;}
+
+func (b BasicCalc) calculate(a int, b int) {
+    putIntLn(a+b);
+}
+
+func main() {
+    var c BasicCalc
+    c.calculate(15, 25);
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "40\n", inspect.stack()[0].function))
+
+    def test_162(self):
+        input = """
+type Speaker interface { speak(); }
+
+type Human struct { name int; }
+
+func (h Human) speak() {
+    putIntLn(h.name);
+}
+
+type Classroom struct {
+    student Human;
+    guest Speaker;
+}
+
+func main() {
+    var h Human = Human {name: 777};
+    var k Speaker = Human {name: 999};
+    var room Classroom = Classroom {student: h, guest: k};
+
+    putIntLn(room.student.name);
+    room.guest.speak();
+}
+        """
+        self.assertTrue(TestCodeGen.test(input, "777\n999\n", inspect.stack()[0].function))
+
+    def test_163(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func main() {
+        var p Person = Person{name: "Alice", age: 22};
+        putStringLn(p.name);
+        putIntLn(p.age);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Alice\n22\n", inspect.stack()[0].function))
+
+    def test_164(self):
+        input = """
+    type Greeter interface { greet(); }
+
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) greet() {
+        putStringLn(p.name);
+    }
+
+    func main() {
+        var g Greeter = Person{name: "Bob", age: 30};
+        g.greet();
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Bob\n", inspect.stack()[0].function))
+
+    def test_165(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) agePlus(n int) int {
+        return p.age + n;
+    }
+    func main() {
+        var p Person = Person{name: "Charlie", age: 18};
+        var result int = p.agePlus(5);
+        putIntLn(result);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "23\n", inspect.stack()[0].function))
+
+    def test_166(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func sumAges(p1 Person, p2 Person) int {
+        return p1.age + p2.age;
+    }
+    func main() {
+        var p1 Person = Person{name: "Dan", age: 20};
+        var p2 Person = Person{name: "Eve", age: 25};
+        var total int = sumAges(p1, p2);
+        putIntLn(total);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "45\n", inspect.stack()[0].function))
+
+    def test_167(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) printInfo() {
+        putStringLn(p.name);
+        putIntLn(p.age);
+    }
+    func main() {
+        var people [1]Person
+        people[0] := Person{name: "Anna", age: 19};
+        people[0].printInfo() 
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Anna\n19\n", inspect.stack()[0].function))
+
+    def test_168(self):
+        input = """
+    type Speaker interface { speak(); }
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) speak() {
+        putStringLn(p.name);
+    }
+    func announce(s Speaker) {
+        s.speak();
+    }
+    func main() {
+        var p Person = Person{name: "Grace", age: 27};
+        announce(p);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Grace\n", inspect.stack()[0].function))
+
+    def test_169(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func createPerson(n string, a int) Person {
+        return Person{name: n, age: a};
+    }
+    func main() {
+        var p Person = createPerson("Helen", 24);
+        putStringLn(p.name);
+        putIntLn(p.age);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Helen\n24\n", inspect.stack()[0].function))
+
+    def test_170(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) isAdult() boolean {
+        return p.age >= 18;
+    }
+    func main() {
+        var p Person = Person{name: "Ivy", age: 17};
+        if (p.isAdult()) {
+            putStringLn("Adult");
+        } else {
+            putStringLn("Minor");
+        }
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Minor\n", inspect.stack()[0].function))
+
+    def test_171(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) duplicate() Person {
+        return Person{name: p.name, age: p.age};
+    }
+    func main() {
+        var p1 Person = Person{name: "Jack", age: 31};
+        var p2 Person = p1.duplicate();
+        putStringLn(p2.name);
+        putIntLn(p2.age);
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Jack\n31\n", inspect.stack()[0].function))
+
+    def test_172(self):
+        input = """
+    type Person struct {
+        name string;
+        age int;
+    }
+    func (p Person) printInfo() {
+        putStringLn(p.name);
+        putIntLn(p.age);
+    }
+    func main() {
+        var people [2]Person = [2]Person{Person{name: "Anna", age: 19},Person{name: "Bill", age: 21}};
+        people[0].printInfo();
+        people[1].printInfo();
+    }
+        """
+        self.assertTrue(TestCodeGen.test(input, "Anna\n19\nBill\n21\n", inspect.stack()[0].function))
 

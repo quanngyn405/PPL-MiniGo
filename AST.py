@@ -175,7 +175,7 @@ class ArrayType(Type):
 @dataclass
 class StructType(Type):
     name: str
-    elements:List[Tuple[str,Type]]
+    elements:List[tuple[str,Type]]
     methods:List[MethodDecl]
         
     def __str__(self):
@@ -432,7 +432,7 @@ class ArrayLiteral(Literal):
 @dataclass
 class StructLiteral(Literal):
     name:str
-    elements: List[Tuple[str,Expr]] # [] if there is no elements
+    elements: List[tuple[str,Expr]] # [] if there is no elements
     
     def __str__(self):
         return "StructLiteral(" + self.name + ',[' + ','.join(("("+str(i)+","+str(j)+")") for i,j in self.elements) + "])"

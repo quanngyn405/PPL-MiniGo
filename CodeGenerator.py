@@ -18,6 +18,8 @@ class CodeGenerator(BaseVisitor,Utils):
         self.list_function = []
         self.arrayCell = None 
         self.arrayCellType = None
+        self.list_type = {}
+        self.struct: StructType = None
 
     def init(self):
         mem = [
@@ -50,12 +52,12 @@ class CodeGenerator(BaseVisitor,Utils):
        
     def emitObjectInit(self):
         frame = Frame("<init>", VoidType())  
-        self.emit.printout(self.emit.emitMETHOD("<init>", MType([], VoidType()), False, frame))  # Bắt đầu định nghĩa phương thức <init>
+        self.emit.printout(self.emit.emitMETHOD("<init>", MType([], VoidType()), False, frame)) 
         frame.enterScope(True)  
-        self.emit.printout(self.emit.emitVAR(frame.getNewIndex(), "this", ClassType(self.className), frame.getStartLabel(), frame.getEndLabel(), frame))  # Tạo biến "this" trong phương thức <init>
+        self.emit.printout(self.emit.emitVAR(frame.getNewIndex(), "this", Id(self.className), frame.getStartLabel(), frame.getEndLabel(), frame))  # Tạo biến "this" trong phương thức <init>
         
         self.emit.printout(self.emit.emitLABEL(frame.getStartLabel(), frame))
-        self.emit.printout(self.emit.emitREADVAR("this", ClassType(self.className), 0, frame))  
+        self.emit.printout(self.emit.emitREADVAR("this", Id(self.className), 0, frame))  
         self.emit.printout(self.emit.emitINVOKESPECIAL(frame))  
         
         self.emit.printout(self.emit.emitLABEL(frame.getEndLabel(), frame))
@@ -79,15 +81,37 @@ class CodeGenerator(BaseVisitor,Utils):
         frame.exitScope()
 
     def visitProgram(self, ast: Program, c):
-        self.list_function = c + [Symbol(item.name, MType(list(map(lambda x: x.parType, item.params)), item.retType), CName(self.className)) for item in ast.decl if isinstance(item, FuncDecl)]
+        self.list_type = {x.name: x for x in ast.decl if isinstance(x, Type)}
+
+        self.list_function = c + [
+            Symbol(item.name, MType(list(map(lambda x: x.parType, item.params)), item.retType), CName(self.className))
+            for item in ast.decl if isinstance(item, FuncDecl)
+        ]
+
+        for item in ast.decl:
+            if isinstance(item, MethodDecl):
+                struct_type  = self.list_type.get(item.recType.name)
+                if struct_type:
+                    struct_type.methods.append(item)
+                
         env = {}
         env['env'] = [c]
         self.emit.printout(self.emit.emitPROLOG(self.className, "java.lang.Object"))
-        env = reduce(lambda a, x: self.visit(x, a) if isinstance(x, VarDecl) or isinstance(x, ConstDecl) else a, ast.decl, env)
+        env = reduce(lambda a, x: self.visit(x, a) if isinstance(x, (VarDecl, ConstDecl)) else a, ast.decl, env)
+
         reduce(lambda a, x: self.visit(x, a) if isinstance(x, FuncDecl) else a, ast.decl, env)
+
         self.emitObjectInit()
         self.emitObjectCInit(ast, env)
         self.emit.printout(self.emit.emitEPILOG())
+
+        for item in self.list_type.values():
+            self.struct = item
+            self.emit = Emitter(self.path + "/" + item.name + ".j")
+            self.visit(item, {
+                'env': env['env']
+            })
+        
         return env
 
     ## TODO decl ------------------------------
@@ -128,7 +152,6 @@ class CodeGenerator(BaseVisitor,Utils):
         self.emit.printout(self.emit.emitVAR(index, param_symbol.name, param_symbol.mtype, frame.getStartLabel(), frame.getEndLabel(), frame))
         return o
     
-    
     def visitVarDecl(self, ast: VarDecl, o: dict) -> dict:
         def create_init(varType, o: dict):
             init_map = {
@@ -136,20 +159,23 @@ class CodeGenerator(BaseVisitor,Utils):
                 FloatType: lambda: FloatLiteral(0.0),
                 StringType: lambda: StringLiteral("\"\""),
                 BoolType: lambda: BooleanLiteral("false"),
+                NilLiteral: lambda: NilLiteral(),
+                Id: lambda: StructLiteral(varType.name, []),
             }
             if type(varType) in init_map:
                 return init_map[type(varType)]()
-            
+           
         env = o.copy()
-        env['frame'] = Frame("<template_VT>", VoidType())
+        env['frame'] = Frame("<my-template>", VoidType())
 
         varInit = ast.varInit 
         varType = ast.varType 
 
         if not varInit:
-            varInit = create_init(varType, o)
             if type(varType) is ArrayType:
-                varInit = self.visit(varType, env)[1]
+                varInit = ArrayLiteral(varType.dimens, varType.dimens, varType)
+            else:
+                varInit = create_init(varType, o)
             ast.varInit = varInit
 
         rhsCode, rhsType = self.visit(varInit, env)
@@ -171,7 +197,6 @@ class CodeGenerator(BaseVisitor,Utils):
             if type(varType) is FloatType and type(rhsType) is IntType:
                 rhsType = FloatType()
                 rhsCode += self.emit.emitI2F(frame)
-                  
             self.emit.printout(rhsCode)
             self.emit.printout(self.emit.emitWRITEVAR(ast.varName, varType, index,  frame))                
         return o
@@ -197,9 +222,9 @@ class CodeGenerator(BaseVisitor,Utils):
         self.emit.printout(self.emit.emitLABEL(env['frame'].getStartLabel(), env['frame']))
 
         for item in ast.member:
-            if type(item) is FuncCall:
+            if type(item) is FuncCall or type(item) is MethCall:
                 env["stmt"] = True
-            env = self.visit(item, env)
+            self.visit(item, env)
 
         self.emit.printout(self.emit.emitLABEL(env['frame'].getEndLabel(), env['frame']))
         env['frame'].exitScope()
@@ -207,7 +232,10 @@ class CodeGenerator(BaseVisitor,Utils):
     
     def visitId(self, ast: Id, o: dict) -> dict:
         sym = next(filter(lambda x: x.name == ast.name, [j for i in o['env'] for j in i]), None)
-        
+        if not sym:
+            if o.get('isLeft'):
+                return self.emit.emitWRITEVAR("this", Id(""), 0, o['frame']), Id("")
+            return self.emit.emitREADVAR("this", Id(""), 0, o['frame']), Id("")
         if o.get('isLeft'): 
             if type(sym.value) is Index:
                 return self.emit.emitWRITEVAR(sym.name, sym.mtype, sym.value.value, o['frame']), sym.mtype
@@ -221,7 +249,25 @@ class CodeGenerator(BaseVisitor,Utils):
     def visitAssign(self, ast: Assign, o: dict) -> dict:
         if type(ast.lhs) is Id and not next(filter(lambda x: x.name == ast.lhs.name, [j for i in o['env'] for j in i]),None):
             return self.visitVarDecl(VarDecl(ast.lhs.name, None, ast.rhs), o)
-        
+        if type(ast.lhs) is FieldAccess:
+            fieldAccess = ast.lhs
+            if type(fieldAccess.receiver) is Id and fieldAccess.receiver.name == "this":
+                self.emit.printout(self.emit.emitREADVAR("this", Id(self.struct.name), 0, o['frame']))
+                field = self.lookup(fieldAccess.field, self.struct.elements, lambda x: x[0])
+                rhsCode, rhsType = self.visit(ast.rhs, o) 
+                self.emit.printout(rhsCode)
+                self.emit.printout(self.emit.emitPUTFIELD(f"{self.struct.name}/{field[0]}", field[1], o['frame']))
+                return o
+            elif type(fieldAccess.receiver) is Id:
+                code,typ = self.visit(fieldAccess.receiver, o)
+                structFound = self.list_type.get(typ.name)
+                field = self.lookup(fieldAccess.field, structFound.elements, lambda x: x[0])
+                rhsCode, rhsType = self.visit(ast.rhs, o)
+                o['isLeft'] = False
+                self.emit.printout(code + rhsCode)
+                self.emit.printout(self.emit.emitPUTFIELD(f"{structFound.name}/{field[0]}", field[1], o['frame']))
+                return o
+
         if type(ast.lhs) is ArrayCell:
             o['frame'].push()
             o['frame'].push()
@@ -381,9 +427,7 @@ class CodeGenerator(BaseVisitor,Utils):
 
     def visitConstDecl(self, ast: ConstDecl, o: dict) -> dict:
         return self.visit(VarDecl(ast.conName, ast.conType, ast.iniExpr), o)
-    # class ArrayType(Type):
-    #   dimens:List[Expr]
-    #   eleType:Type
+    
     def visitArrayType(self, ast: ArrayType, o):
         frame = o['frame']
         codeGen = ""
@@ -418,16 +462,16 @@ class CodeGenerator(BaseVisitor,Utils):
     def visitForBasic(self, ast: ForBasic, o: dict) -> dict:
         frame = o['frame']
         frame.enterLoop()
-        lable_new = frame.getNewLabel()
-        lable_Break = frame.getBreakLabel() 
-        lable_Cont = frame.getContinueLabel()
-        self.emit.printout(self.emit.emitLABEL(lable_new, frame))
+        new_label = frame.getNewLabel()
+        break_label = frame.getBreakLabel() 
+        cont_label = frame.getContinueLabel()
+        self.emit.printout(self.emit.emitLABEL(new_label, frame))
         self.emit.printout(self.visit(ast.cond, o)[0])
-        self.emit.printout(self.emit.emitIFFALSE(lable_Break, frame))
+        self.emit.printout(self.emit.emitIFFALSE(break_label, frame))
         self.visit(ast.loop, o)
-        self.emit.printout(self.emit.emitLABEL(lable_Cont, frame))
-        self.emit.printout(self.emit.emitGOTO(lable_new, frame))
-        self.emit.printout(self.emit.emitLABEL(lable_Break, frame))
+        self.emit.printout(self.emit.emitLABEL(cont_label, frame))
+        self.emit.printout(self.emit.emitGOTO(new_label, frame))
+        self.emit.printout(self.emit.emitLABEL(break_label, frame))
         frame.exitLoop()
         return o
     
@@ -469,3 +513,203 @@ class CodeGenerator(BaseVisitor,Utils):
     def visitBreak(self, ast, o: dict) -> dict:
         self.emit.printout(self.emit.emitGOTO(o['frame'].getBreakLabel(), o['frame']))
         return o
+
+    def visitFieldAccess(self, ast: FieldAccess, o: dict) -> tuple[str, Type]:
+        code, typ = self.visit(ast.receiver, o)
+        if self.struct:
+            field = next(filter(lambda x: x[0] == ast.field, self.struct.elements), None)
+            return code + self.emit.emitGETFIELD(f"{self.struct.name}/{ast.field}", field[1], o['frame']), field[1]
+        else:
+            typ = self.list_type[typ.name]
+            field = next(filter(lambda x: x[0] == ast.field, typ.elements), None)
+            return code + self.emit.emitGETFIELD(f"{typ.name}/{ast.field}", field[1], o['frame']), field[1]
+        
+        
+    def visitMethCall(self, ast: MethCall, o: dict) -> tuple[str, Type]:
+        code, typ = self.visit(ast.receiver, o)
+
+        if isinstance(typ, Id):
+            typ = self.list_type.get(typ.name)
+        
+        is_stmt = o.pop("stmt", False)
+
+        for arg in ast.args:
+            argCode, _ = self.visit(arg, o)
+            code += argCode
+        
+        returnType = None
+
+        if isinstance(typ, StructType):
+            method: MethodDecl = next(filter(lambda x: x.fun.name == ast.metName, typ.methods), None)
+            mtype = MType(list(map(lambda x: x.parType, method.fun.params)), method.fun.retType)
+            returnType = method.fun.retType
+            code += self.emit.emitINVOKEVIRTUAL(f"{typ.name}/{ast.metName}", mtype, o['frame'])
+        elif isinstance(typ, InterfaceType):
+            method = next(filter(lambda x: x.name == ast.metName, typ.methods), None)
+            mtype = MType(list(map(lambda x: x.parType, method.params)), method.retType) 
+            returnType = method.retType
+            code += self.emit.emitINVOKEINTERFACE(f"{typ.name}/{ast.metName}", mtype, o['frame'], 1)
+
+        if is_stmt:
+            self.emit.printout(code)
+            return o
+        return code, returnType
+    
+    def visitStructLiteral(self, ast: StructLiteral, o: dict) -> tuple[str, Type]:
+        frame = o['frame']
+        code = self.emit.emitNEW(ast.name, frame) + self.emit.emitDUP(frame)
+
+        element_codes = [self.visit(item[1], o) for item in ast.elements]
+        code += ''.join(c for c, _ in element_codes)
+
+        param_types = [t for _, t in element_codes]
+        mtype = MType(param_types, VoidType())
+        code += self.emit.emitINVOKESPECIAL(frame, f"{ast.name}/<init>", mtype)
+
+        return code, Id(ast.name)
+    
+    def visitNilLiteral(self, ast: NilLiteral, o: dict) -> tuple[str, Type]:
+        code = self.emit.emitPUSHNULL(o['frame'])
+        return code, Id("")
+    
+    def visitStructType(self, ast: StructType, o):
+        self.emit.printout(self.emit.emitPROLOG(ast.name, "java.lang.Object"))
+
+        for item in self.list_type.values():
+            if self.checkType(item, ast, [(InterfaceType, StructType)]) and item.name != ast.name:
+                self.emit.printout(self.emit.emitIMPLEMENTS(item.name))
+
+        for item in ast.elements:
+            self.emit.printout(self.emit.emitATTRIBUTE(item[0], item[1], False, False, None, True))  
+
+        paramList = [ParamDecl(item[0], item[1]) for item in ast.elements]
+        blockConstructor = Block([
+                                Assign(
+                                    FieldAccess(Id("this"), item[0]), 
+                                    Id(item[0])
+                                )
+                                for item in ast.elements
+                            ])
+        param_constructor = MethodDecl(
+            None,  
+            None,  
+            FuncDecl(
+                "<init>",
+                paramList,  
+                VoidType(),
+                blockConstructor
+            )
+        )
+        self.visit(param_constructor, o)
+
+        default_constructor = MethodDecl(
+            None, None,
+            FuncDecl("<init>", [], VoidType(), Block([]))
+        )
+        self.visit(default_constructor, o)
+
+        for item in ast.methods:
+            self.visit(item, o)
+
+        self.emit.printout(self.emit.emitEPILOG())
+
+
+    
+    def visitMethodDecl(self, ast: MethodDecl, o):
+        self.function = ast.fun
+        frame = Frame(ast.fun.name, ast.fun.retType)
+        mtype = MType([param.parType for param in ast.fun.params], ast.fun.retType)
+        
+        env = o.copy()
+        env['frame'] = frame
+        self.emit.printout(self.emit.emitMETHOD(ast.fun.name, mtype, False, frame))
+        frame.enterScope(True)
+        
+        self.emit.printout(self.emit.emitVAR(frame.getNewIndex(), "this", Id(self.struct.name), frame.getStartLabel(), frame.getEndLabel(), frame))
+        self.emit.printout(self.emit.emitLABEL(frame.getStartLabel(), frame))
+        
+        if ast.receiver is None:
+            self.emit.printout(self.emit.emitREADVAR("this", Id(""), 0, frame))
+            self.emit.printout(self.emit.emitINVOKESPECIAL(frame))  
+
+        env['env'] = [[]] + env['env']
+        env = reduce(lambda acc, param: self.visit(param, acc), ast.fun.params, env)
+
+        self.visit(ast.fun.body, env)
+
+        self.emit.printout(self.emit.emitLABEL(frame.getEndLabel(), frame))
+        if isinstance(ast.fun.retType, VoidType):
+            self.emit.printout(self.emit.emitRETURN(VoidType(), frame))
+        self.emit.printout(self.emit.emitENDMETHOD(frame))
+        frame.exitScope()
+        return o
+
+
+    def visitInterfaceType(self, ast: InterfaceType, o):
+        self.emit.printout(self.emit.emitPROLOG(ast.name, "java.lang.Object", True))
+        for item in ast.methods:
+            frame = Frame(item.name, item.retType) 
+            mtype = MType(list(map(lambda x: x.parType, item.params)), item.retType)
+            self.emit.printout(self.emit.emitMETHOD(item.name, mtype, False, frame, isAbstract=True))
+            self.emit.printout(self.emit.emitENDMETHOD(frame, True))
+        self.emit.printout(self.emit.emitEPILOG())
+
+    def checkParams(self, left_params, right_params):
+        for method in right_params:
+            check_len = len(method.fun.params) == len(left_params.params)
+            if check_len == False:
+                return False
+            for param, arg in zip(method.fun.params, left_params.params):
+                check_type = type(param.parType) == type(arg)
+                if check_type == False:
+                    return False
+        return True
+
+    def checkType(self, LHS_type, RHS_type, list_type_permission: List[tuple[Type, Type]] = [], flag = False):
+        if isinstance(RHS_type, StructType) and RHS_type.name == "":
+            if isinstance(LHS_type, Id):
+                LHS_type = self.lookup(LHS_type.name, self.list_type, lambda x: x.name)  
+            return isinstance(LHS_type, StructType) or isinstance(LHS_type, InterfaceType)
+        
+        if isinstance(LHS_type, Id):
+            LHS_type = self.lookup(LHS_type.name, self.list_type, lambda x: x.name)
+        if isinstance(RHS_type, Id):
+            RHS_type = self.lookup(RHS_type.name, self.list_type, lambda x: x.name) 
+        
+        if (type(LHS_type), type(RHS_type)) in list_type_permission:
+            if isinstance(LHS_type, InterfaceType) and isinstance(RHS_type, StructType):
+                check_name = all(map(lambda item: self.lookup(item.name, RHS_type.methods, lambda x: x.fun.name), LHS_type.methods))
+                check_type_1 = all(map(lambda item: self.lookup(item.retType, RHS_type.methods, lambda x: x.fun.retType), LHS_type.methods))
+                check_type_2 = all(map(lambda item: self.lookup(type(item.retType), RHS_type.methods, lambda x: type(x.fun.retType)), LHS_type.methods))
+                check_pr = all(map(lambda item: self.checkParams(item, RHS_type.methods), LHS_type.methods))
+                
+                if not check_name and not check_type_1 and not check_type_2:
+                    return False
+                if not check_pr:
+                    return False
+            return True
+
+        if (isinstance(LHS_type, StructType) and isinstance(RHS_type, StructType)) or (isinstance(LHS_type, InterfaceType) and isinstance(RHS_type, InterfaceType)):
+            ret = LHS_type.name == RHS_type.name
+            return ret
+
+        if isinstance(LHS_type, ArrayType) and isinstance(RHS_type, ArrayType):
+            if type(LHS_type.eleType) == Id and type(RHS_type.eleType) == type(LHS_type.eleType):
+                LHS_type = self.lookup(LHS_type.eleType.name, self.list_type, lambda x: x.name)
+                RHS_type = self.lookup(RHS_type.eleType.name, self.list_type, lambda x: x.name)
+                ret = type(LHS_type) == type(RHS_type)
+                return ret
+
+            check_dimens = len(LHS_type.dimens) == len(RHS_type.dimens) and LHS_type.dimens == RHS_type.dimens
+            if type(LHS_type.eleType) == FloatType:
+                if type(RHS_type.eleType) == IntType:
+                    if flag == False:
+                        return check_dimens
+                    else: return False
+                if type(RHS_type.eleType) == FloatType:
+                   return check_dimens
+            check_arr_type = type(LHS_type.eleType) == type(RHS_type.eleType) 
+            return check_dimens and check_arr_type 
+
+        ret_global = type(LHS_type) == type(RHS_type)
+        return ret_global

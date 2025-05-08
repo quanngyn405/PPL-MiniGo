@@ -68,7 +68,7 @@ class Emitter():
             return "[" * len(inType.dimens) + self.getJVMType(inType.eleType)
         elif typeIn is MType:
             return "(" + "".join(list(map(lambda x: self.getJVMType(x), inType.partype))) + ")" + self.getJVMType(inType.rettype)
-        elif typeIn is cgen.ClassType:
+        elif typeIn is cgen.Id:
             return "L" + inType.name + ";"
         else:
             return str(typeIn)
@@ -147,7 +147,7 @@ class Emitter():
             return self.jvm.emitFALOAD()
         elif type(in_) is cgen.ArrayType:
             return self.jvm.emitAALOAD()
-        elif type(in_) is cgen.ClassType or type(in_) is StringType or type(in_) is ArrayType:
+        elif type(in_) is cgen.Id or type(in_) is StringType or type(in_) is ArrayType:
             return self.jvm.emitAALOAD()
         else:
             raise IllegalOperandException(str(in_))    
@@ -168,7 +168,7 @@ class Emitter():
             return self.jvm.emitBASTORE()
         elif type(in_) is cgen.ArrayType:
             return self.jvm.emitAASTORE()
-        elif type(in_) is cgen.ClassType or type(in_) is StringType or type(in_) is ArrayType:
+        elif type(in_) is cgen.Id or type(in_) is StringType or type(in_) is ArrayType:
             return self.jvm.emitAASTORE()
         else:
             raise IllegalOperandException(str(in_))
@@ -202,7 +202,7 @@ class Emitter():
         elif type(inType) is FloatType:
             ## TODO implement
             return self.jvm.emitFLOAD(index)
-        elif type(inType) is cgen.ArrayType or type(inType) is cgen.ClassType or type(inType) is StringType:
+        elif type(inType) is cgen.ArrayType or type(inType) is cgen.Id or type(inType) is StringType:
             return self.jvm.emitALOAD(index)
         else:
             raise IllegalOperandException(name)
@@ -237,7 +237,7 @@ class Emitter():
         elif type(inType) is FloatType:
             ## TODO implement
             return self.jvm.emitFSTORE(index)
-        elif type(inType) is ArrayType or type(inType) is cgen.ClassType or type(inType) is StringType:
+        elif type(inType) is ArrayType or type(inType) is cgen.Id or type(inType) is StringType:
             return self.jvm.emitASTORE(index)
         else:
             raise IllegalOperandException(name)
@@ -259,16 +259,20 @@ class Emitter():
     *   @param in the type of the attribute.
     *   @param isFinal true in case of constant; false otherwise
     '''
-    def emitATTRIBUTE(self, lexeme, in_, isStatic, isFinal, value):
+    def emitATTRIBUTE(self, lexeme, in_, isStatic, isFinal, value, isPublic=False):
         #lexeme: String
         #in_: Type
         #isFinal: Boolean
         #value: String
+        if isPublic:
+            lexeme = "public " + lexeme
         if isStatic:
             return self.jvm.emitSTATICFIELD(lexeme, self.getJVMType(in_), isFinal, value)
         else:
             #! CHANGE
             return self.jvm.emitINSTANCEFIELD(lexeme, self.getJVMType(in_), isFinal, value)
+            # return self.jvm.emitFIELD(lexeme, self.getJVMType(in_), isFinal, value)
+
 
     def emitGETSTATIC(self, lexeme, in_, frame):
         #lexeme: String
@@ -557,22 +561,23 @@ class Emitter():
     *   @param isStatic <code>true</code> if the method is static; <code>false</code> otherwise.
     '''
 
-    def emitMETHOD(self, lexeme, in_, isStatic, frame):
+    def emitMETHOD(self, lexeme, in_, isStatic, frame, isAbstract=False):
         #lexeme: String
         #in_: Type
         #isStatic: Boolean
         #frame: Frame
 
-        return self.jvm.emitMETHOD(lexeme, self.getJVMType(in_), isStatic)
+        return self.jvm.emitMETHOD(lexeme, self.getJVMType(in_), isStatic, isAbstract)
 
     '''   generate the end directive for a function.
     '''
-    def emitENDMETHOD(self, frame):
+    def emitENDMETHOD(self, frame, isAbstract=False):
         #frame: Frame
 
         buffer = list()
-        buffer.append(self.jvm.emitLIMITSTACK(frame.getMaxOpStackSize()))
-        buffer.append(self.jvm.emitLIMITLOCAL(frame.getMaxIndex()))
+        if not isAbstract:
+            buffer.append(self.jvm.emitLIMITSTACK(frame.getMaxOpStackSize()))
+            buffer.append(self.jvm.emitLIMITLOCAL(frame.getMaxIndex()))
         buffer.append(self.jvm.emitENDMETHOD())
         return ''.join(buffer)
 
@@ -704,15 +709,15 @@ class Emitter():
     *   .class public MPC.CLASSNAME<p>
     *   .super java/lang/Object<p>
     '''
-    def emitPROLOG(self, name, parent):
-        #name: String
-        #parent: String
-
+    
+    def emitPROLOG(self, name, parent, interface=False): 
         result = list()
         result.append(self.jvm.emitSOURCE(name + ".java"))
-        result.append(self.jvm.emitCLASS("public " + name))
+        modifier = "interface" if interface else ""
+        result.append(self.jvm.emitCLASS(f"public {modifier} {name}"))
         result.append(self.jvm.emitSUPER("java/land/Object" if parent == "" else parent))
         return ''.join(result)
+
 
     def emitLIMITSTACK(self, num):
         #num: Int
@@ -775,5 +780,28 @@ class Emitter():
         if type(in_) is ArrayType:
             return self.jvm.emitMULTIANEWARRAY(self.getJVMType(in_), str(size))
 
+    def emitNEW(self, lexeme, frame):
+        frame.push()
+        return self.jvm.emitNEW(lexeme)
 
-        
+    def emitPUSHNULL(self, frame):
+        frame.push()
+        return self.jvm.emitPUSHNULL()
+            
+    def emitINVOKEINTERFACE(self, lexeme, in_, frame, num):
+        #lexeme: String
+        #in_: Type
+        #frame: Frame
+        #num: Int
+
+        typ = in_
+        list(map(lambda x: frame.pop(), typ.partype))
+        frame.pop()
+        if not type(typ) is VoidType:
+            frame.push()
+        return self.jvm.emitINVOKEINTERFACE(lexeme, self.getJVMType(in_), num)
+
+    def emitIMPLEMENTS(self, lexeme):
+        #lexeme: String
+        #in_: Type
+        return self.jvm.emitIMPLEMENTS(lexeme)
